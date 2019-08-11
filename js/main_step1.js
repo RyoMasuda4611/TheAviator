@@ -87,6 +87,9 @@ function createLights() {
 
   scene.add(hemisphereLight);
   scene.add(shadowLight);
+
+  ambientLight = new THREE.AmbientLight(0xdc8874, .5);
+  scene.add(ambientLight);
 }
 
 Sea = function() {
@@ -339,11 +342,12 @@ function createPlane() {
 }
 
 function updatePlane() {
-  var targetX = normalize(mousePos.x, -1, 1, -100, 100);
-  var targetY = normalize(mousePos.y, -1, 1, 25, 175);
+  var targetY = normalize(mousePos.y, -.75, .75, 25, 175);
 
-  airplane.mesh.position.y = targetY;
-  airplane.mesh.position.x = targetX;
+  airplane.mesh.position.y += (targetY-airplane.mesh.position.y)*0.1;
+  airplane.mesh.rotation.z = (targetY-airplane.mesh.position.y)*0.0128;
+  airplane.mesh.rotation.x = (airplane.mesh.position.y - targetY)*0.0064;
+
   airplane.propeller.rotation.x += 0.3;
 }
 
@@ -361,7 +365,7 @@ function loop(){
   sky.mesh.rotation.z += .01;
   airplane.pilot.updateHairs();
   updatePlane();
-
+  sea.moveWaves();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
 }
@@ -379,6 +383,59 @@ function init() {
   document.addEventListener('mousemove', handleMouseMove, false);
 
   loop();
+}
+
+Sea = function() {
+  var geom = new THREE.CylinderGeometry(600, 600, 800, 40, 10);
+  geom.applyMatrix(new THREE.Matrix4().makeRotationX(-Math.PI/2));
+
+  geom.mergeVertices();
+
+  var l = geom.vertices.length;
+
+  this.waves = [];
+
+  for (var i=0; i<l; i++) {
+    var v = geom.vertices[i];
+
+    this.waves.push({
+      y: v.y,
+      x: v.x,
+      z: v.z,
+      ang: Math.random()*Math.PI*2,
+      amp: 5 + Math.random()*15,
+      speed: 0.016 + Math.random()*0.032
+    })
+  };
+
+  var mat = new THREE.MeshPhongMaterial({
+    color: Colors.blue,
+    transparent: true,
+    opacity: .8,
+    shadong: THREE.FlatShading,
+  });
+ 
+  this.mesh = new THREE.Mesh(geom, mat);
+  this.mesh.recieveShadow = true;
+}
+
+Sea.prototype.moveWaves = function () {
+  var verts = this.mesh.geometry.vertices;
+  var l = verts.length;
+
+  for(var i=0; i<l; i++) {
+    var v = verts[i];
+
+    var vprops = this.waves[i];
+
+    v.x = vprops.x + Math.cos(vprops.ang)*vprops.amp;
+    v.y = vprops.y + Math.sin(vprops.ang)*vprops.amp;
+
+    vprops.ang += vprops.speed;
+  }
+
+  this.mesh.geometry.verticesNeedUpdate=true;
+  sea.mesh.rotation.z += .005;
 }
 
 window.addEventListener('load', init, false);
